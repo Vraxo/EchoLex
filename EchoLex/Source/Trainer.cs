@@ -2,69 +2,59 @@
 
 namespace EchoLex;
 
-static class Trainer
+public class Trainer
 {
-    private static List<string> uniqueWords = new();
-    private static Dictionary<string, int> wordEncodings = new();
+    private List<string> uniqueWords = new();
+    private Dictionary<string, int> wordEncodings = new();
 
-    public static void Train(int order = 10)
+    public void Train(int maxOrder = 10)
     {
         Directory.CreateDirectory("Resources/PredictionPairs");
+        Directory.CreateDirectory("Resources/Dataset");
 
         string[] files = Directory.GetFiles("Training");
 
         foreach (string file in files)
         {
-            TrainFile(file, order);
+            string[] words = File.ReadAllText(file).Split(' ');
+
+            UpdateWordEncodings(words);
         }
 
         SaveWordEncodings();
+        CreateEncodedFiles(files);
     }
 
-    private static void TrainFile(string file, int order)
+    private void UpdateWordEncodings(string[] words)
     {
-        string[] words = File.ReadAllText(file).Split(' ');
-
         foreach (string word in words)
         {
-            if (!uniqueWords.Contains(word))
+            if (!wordEncodings.ContainsKey(word))
             {
+                wordEncodings[word] = wordEncodings.Count + 1; // Incremental encoding
                 uniqueWords.Add(word);
-                wordEncodings[word] = uniqueWords.Count;
             }
-        }
-
-        for (int currentOrder = 1; currentOrder <= order; currentOrder++)
-        {
-            List<PredictionPair> predictionPairs = new();
-
-            for (int i = 0; i < words.Length - currentOrder; i++)
-            {
-                List<int> sequence = new();
-
-                for (int j = 0; j < currentOrder; j++)
-                {
-                    sequence.Add(wordEncodings[words[i + j]]);
-                }
-
-                predictionPairs.Add(new PredictionPair(sequence, wordEncodings[words[i + currentOrder]]));
-            }
-
-            SavePredictions(predictionPairs, currentOrder);
         }
     }
 
-    private static void SavePredictions(List<PredictionPair> predictionPairs, int order)
-    {
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        string json = JsonSerializer.Serialize(predictionPairs, options);
-        File.WriteAllText($"Resources/PredictionPairs/PredictionPairs_Order{order}.json", json);
-    }
-
-    private static void SaveWordEncodings()
+    private void SaveWordEncodings()
     {
         var options = new JsonSerializerOptions { WriteIndented = true };
         string json = JsonSerializer.Serialize(wordEncodings, options);
         File.WriteAllText("Resources/WordEncodings.json", json);
+    }
+
+    private void CreateEncodedFiles(string[] files)
+    {
+        foreach (string file in files)
+        {
+            string[] words = File.ReadAllText(file).Split(' ');
+            string[] encodedWords = words.Select(word => wordEncodings[word].ToString()).ToArray();
+
+            string fileName = Path.GetFileName(file);
+            string encodedFilePath = Path.Combine("Resources/Dataset", fileName);
+
+            File.WriteAllText(encodedFilePath, string.Join(" ", encodedWords));
+        }
     }
 }
